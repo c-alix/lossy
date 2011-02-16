@@ -1,0 +1,101 @@
+#!/usr/bin/python
+
+"""
+Required software:
+
+mp3split
+http://mp3splt.sourceforge.net/mp3splt_page/home.php
+
+lame (for mp3)
+flac (for flac files)
+mac-3.99  (for ape files)
+mplayer (for m4a files)
+ //faad (for m4a files)
+"""
+
+import os,sys,select,tty,termios
+
+path = '.'
+
+def getExt(file):
+	if file.find('.') != -1:
+		return file[file.rfind('.'):len(file)]
+	else:
+		return file
+
+def isData():
+	return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
+
+def quit():
+	old_settings = termios.tcgetattr(sys.stdin)
+	try:
+		tty.setcbreak(sys.stdin.fileno())
+		if isData():
+			c = sys.stdin.read(1)
+			if c != '':
+				print 'got it'
+				sys.exit()
+	finally:
+		termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+
+def convert(f):
+	try:
+		if getExt(f) == '.flac':
+			wav = f[0:-4]+'wav'
+			mp3 = f[0:-4]+'mp3'
+			os.system('flac --decode "'+f+'"')
+		elif getExt(f) == '.ape':
+			wav = f[0:-3]+'wav'
+			mp3 = f[0:-3]+'mp3'
+			os.system('mac "'+f+'" "'+wav+'" -d')
+		if getExt(f) == '.m4a':
+			wav = f[0:-3]+'wav'
+			mp3 = f[0:-3]+'mp3'
+			mwav = wav.replace(',','\,')
+			os.system('mplayer -ao pcm:file="'+mwav+'" "'+f+'"')
+		elif getExt(f) == '.ogg':
+			wav = f[0:-3]+'wav'
+			mp3 = f[0:-3]+'mp3'
+			os.system('oggdec "'+f+'"')
+		if getExt(f) == '.wav':
+			wav = f
+			mp3 = f[0:-3]+'mp3'
+
+		os.system('lame --preset extreme "'+wav+'"')
+		os.remove(wav)
+
+		#if getExt(f) != '.wav':
+		#	os.remove(f)
+		os.rename(wav+'.mp3',mp3)
+	except os.OSError, e:
+		print "Error %d: %s" % (e.args[0], e.args[1])
+
+files = []
+
+for i in os.walk(path):
+	for f in i[2]:
+		ext = getExt(f)
+		if ext == '.flac' or ext == '.ape' or ext == '.wav' or ext == '.ogg' or ext == '.m4a':
+		#if ext == '.m4a':
+			files.append((i[0]+'/'+f))
+
+print '--------------------------------------------'
+print 'Found',len(files),'Non-MP3 audio files'
+print '--------------------------------------------'
+
+j = 1
+for i in files:
+	print '--------------------------------------------'
+	print 'Processing',j,'of',len(files)
+	print i
+	print '--------------------------------------------'
+
+	#os.rename(i,i.replace(',',''))
+	#i = i.replace(',','')
+
+	convert(i)
+	j += 1
+
+print '--------------------------------------------'
+print 'done'
+print '--------------------------------------------'
